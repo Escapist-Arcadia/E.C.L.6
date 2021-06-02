@@ -27,14 +27,16 @@ public:
 	const char* GetAnsiStr()const;
 	operator const char* ()const;
 	char* GetBuffer()const;
+	char* GetBuffer(unsigned int NewBufSize);
+	char* GetBufferSetLength(unsigned int NewStrLen, bool Doubled = false);
 	const unsigned int GetLength()const;
 	const unsigned int GetUpperIndex()const;
 	const unsigned int GetBufSize()const;
 	bool IsEmpty()const;
 	bool IsEmptyOrNull()const;
 	bool IsFull()const;
-	const char& GetCharAt(unsigned int nIndex)const;
-	const char& operator[](unsigned int nIndex)const;
+	char& GetCharAt(unsigned int nIndex)const;
+	char& operator[](unsigned int nIndex)const;
 
 	unsigned int Find(const char* lpszStr, unsigned int nStartPos = 0)const;
 	unsigned int Find(const EspString& lpszStr, unsigned int nStartPos = 0)const;
@@ -71,6 +73,14 @@ public:
 	EspString& Replace(const char* lpszOldStr, const char* lpszNewStr);
 
 	EspString& Reverse();
+
+public:
+	EspString Left(unsigned int nIndex);
+	EspString Left(const EspString& lpszEndStr, unsigned int nStartPos = 0);
+	EspString Right(unsigned int nIndex);
+	EspString Right(const EspString& lpszStartStr, unsigned int nStartPos = 0);
+	EspString Middle(unsigned int nIndex, unsigned int nCount);
+	EspString Middle(const EspString& lpszStartStr, const EspString& lpszEndStr, unsigned int nStartPos = 0);
 };
 
 unsigned int EspString::GetLength(const char* lpszStr)
@@ -85,16 +95,16 @@ unsigned int EspString::Find(const char* lpszStr, const char* lpszSub, unsigned 
 		return -1;
 	const char* lpszStrPos = lpszStr + nStartPos;
 	const char* lpszSubPos = lpszSub;
-	const char* lpszPos = lpszStrPos;
-	while (*lpszPos)
+	const char* lpszTargetPos = NULL;
+	while (*lpszStrPos)
 	{
-		lpszStrPos = lpszPos;
-		lpszSubPos = lpszSub;
+		lpszTargetPos = lpszStrPos;
 		while (*lpszStrPos && *lpszSubPos && *lpszStrPos == *lpszSubPos)
 			lpszStrPos++, lpszSubPos++;
 		if (*lpszSubPos == 0)
-			return (unsigned int)(lpszPos - lpszStr);
-		lpszPos++;
+			return lpszTargetPos - lpszStr;
+		lpszSubPos = lpszSub;
+		lpszStrPos++;
 	}
 	return -1;
 }
@@ -104,21 +114,19 @@ unsigned int EspString::ReverseFind(const char* lpszStr, const char* lpszSub, un
 		return -1;
 	const char* lpszStrPos = lpszStr + nEndPos;
 	const char* lpszSubPos = lpszSub;
-	const char* lpszPrevPos = lpszStrPos;
-	const char* lpszCurrPos = NULL;
-	while (*lpszPrevPos)
+	const char* lpszPos = NULL;
+	const char* lpszLastPos = NULL;
+	while (*lpszStrPos)
 	{
-		lpszPrevPos = lpszStrPos;
+		lpszPos = lpszStrPos;
 		while (*lpszStrPos && *lpszSubPos && *lpszStrPos == *lpszSubPos)
 			lpszStrPos++, lpszSubPos++;
-		if (*lpszSubPos == 0)lpszCurrPos = lpszPrevPos;
+		if (*lpszSubPos == 0)
+			lpszLastPos = lpszPos;
 		lpszSubPos = lpszSub;
+		lpszStrPos++;
 	}
-	if (*lpszPrevPos == 0)
-		return (unsigned int)(lpszCurrPos - lpszStr);
-	else
-		return -1;
-	return -1;
+	return lpszLastPos != NULL ? lpszLastPos - lpszStr : -1;
 }
 bool EspString::Compare(const char* lpszStr1, const char* lpszStr2)
 {
@@ -203,23 +211,53 @@ EspString::~EspString()
 {
 	if (Buffer != NULL)
 		::free(Buffer);
+	Buffer = NULL;
 }
 
 const char* EspString::GetAnsiStr()const { return Buffer; }
 EspString::operator const char* ()const { return Buffer; }
 char* EspString::GetBuffer()const { return Buffer; }
+char* EspString::GetBuffer(unsigned int NewBufSize)
+{
+	if (Buffer == NULL)
+	{
+		Buffer = (char*)::malloc(NewBufSize * sizeof(char));
+		if (Buffer == NULL)
+			throw("Allocate Buffer Unsuccessfully");
+		::memset(Buffer, 0, NewBufSize * sizeof(char));
+		BufSize = NewBufSize;
+	}
+	else if (NewBufSize >= BufSize)
+	{
+		char* NewBuffer = (char*)::malloc(NewBufSize * sizeof(char));
+		if (NewBuffer == NULL)
+			throw("Allocate Buffer Unsuccessfully");
+		::memcpy(NewBuffer, Buffer, StrLen * sizeof(char));
+		::memset(NewBuffer + StrLen, 0, (NewBufSize - StrLen) * sizeof(char));
+		::free(Buffer);
+		Buffer = NewBuffer;
+		BufSize = NewBufSize;
+	}
+	return Buffer;
+}
+char* EspString::GetBufferSetLength(unsigned int NewStrLen, bool Doubled)
+{
+	StrLen = NewStrLen++;
+	NewStrLen = Doubled ? NewStrLen * 2 : NewStrLen;
+	return GetBuffer(NewStrLen);
+}
 const unsigned int EspString::GetLength()const { return StrLen; }
 const unsigned int EspString::GetUpperIndex()const { return StrLen - 1; }
 const unsigned int EspString::GetBufSize()const { return BufSize; }
 bool EspString::IsEmpty()const { return StrLen == 0; }
 bool EspString::IsEmptyOrNull()const { return (StrLen == 0 || Buffer == NULL); }
 bool EspString::IsFull()const { return StrLen + 1 == BufSize; }
-const char& EspString::GetCharAt(unsigned int nIndex)const
+char& EspString::GetCharAt(unsigned int nIndex)const
 {
 	if (nIndex >= 0 && nIndex < GetLength())
 		return Buffer[nIndex];
 }
-const char& EspString::operator[](unsigned int nIndex)const { return GetCharAt(nIndex); }
+char& EspString::operator[](unsigned int nIndex)const { return GetCharAt(nIndex); }
 
 unsigned int EspString::Find(const char* lpszStr, unsigned int nStartPos)const { return EspString::Find(Buffer, lpszStr, nStartPos); }
 unsigned int EspString::Find(const EspString& lpszStr, unsigned int nStartPos)const { return EspString::Find(Buffer, lpszStr.Buffer, nStartPos); }
@@ -597,6 +635,41 @@ EspString& EspString::Replace(const char* lpszOldStr, const char* lpszNewStr)
 
 EspString& EspString::Reverse()
 {
-	EspString::Reverse(Buffer); 
+	EspString::Reverse(Buffer);
 	return *this;
+}
+
+EspString EspString::Left(unsigned int nIndex)
+{
+	EspString Result;
+	::memcpy(Result.GetBufferSetLength(nIndex, false), Buffer, nIndex * sizeof(char));
+	return Result;
+}
+EspString EspString::Left(const EspString& lpszEndStr, unsigned int nStartPos)
+{
+	return Left(EspString::Find(Buffer, lpszEndStr, nStartPos));
+}
+EspString EspString::Right(unsigned int nIndex)
+{
+	EspString Result;
+	::memcpy(Result.GetBufferSetLength(nIndex, false), Buffer + StrLen - nIndex, nIndex * sizeof(char));
+	return Result;
+}
+EspString EspString::Right(const EspString& lpszStartStr, unsigned int nStartPos)
+{
+	return Right(StrLen - EspString::ReverseFind(Buffer, lpszStartStr, nStartPos));
+}
+EspString EspString::Middle(unsigned int nIndex, unsigned int nCount)
+{
+	EspString Result;
+	::memcpy(Result.GetBufferSetLength(nCount, false), Buffer + nIndex, nCount * sizeof(char));
+	return Result;
+}
+EspString EspString::Middle(const EspString& lpszStartStr, const EspString& lpszEndStr, unsigned int nStartPos)
+{
+	EspString Result;
+	unsigned int Pos_Left = EspString::Find(Buffer, lpszStartStr, nStartPos) + lpszStartStr.StrLen;
+	unsigned int Pos_Right = EspString::Find(Buffer, lpszEndStr, Pos_Left) - Pos_Left;
+	::memcpy(Result.GetBufferSetLength(Pos_Right, false), Buffer + Pos_Left, Pos_Right * sizeof(char));
+	return Result;
 }

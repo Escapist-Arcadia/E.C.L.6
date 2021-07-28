@@ -1,5 +1,8 @@
 #pragma once
 #include<memory>
+#ifndef __ESPSTRING__
+#define __ESPSTRING__
+#endif
 class EspString
 {
 public:
@@ -7,7 +10,9 @@ public:
 	static char CharToLower(const char C) { return (C >= 'A' && C <= 'Z') ? (C - 'A' + 'a') : C; }
 
 	static unsigned int GetLength(const char* lpszStr);
+	static unsigned int Find(const char* lpszStr, const char lpszChar, unsigned int nStartPos = 0);
 	static unsigned int Find(const char* lpszStr, const char* lpszSub, unsigned int nStartPos = 0);
+	static unsigned int ReverseFind(const char* lpszStr, const char lpszChar, unsigned int nEndPos = 0);
 	static unsigned int ReverseFind(const char* lpszStr, const char* lpszSub, unsigned int nEndPos = 0);
 	static bool Compare(const char* lpszStr1, const char* lpszStr2);
 	static bool CompareNoCase(const char* lpszStr1, const char* lpszStr2);
@@ -28,6 +33,7 @@ public:
 	operator const char* ()const;
 	char* GetBuffer()const;
 	char* GetBuffer(unsigned int NewBufSize);
+	EspString& RefreshLength() { StrLen = EspString::GetLength(Buffer); return *this; };
 	char* GetBufferSetLength(unsigned int NewStrLen, bool Doubled = false);
 	const unsigned int GetLength()const;
 	const unsigned int GetUpperIndex()const;
@@ -38,8 +44,16 @@ public:
 	char& GetCharAt(unsigned int nIndex)const;
 	char& operator[](unsigned int nIndex)const;
 
+	unsigned int Find(const char lpszChar, unsigned int nStartPos = 0)const
+	{
+		return EspString::Find(Buffer, lpszChar, nStartPos);
+	}
 	unsigned int Find(const char* lpszStr, unsigned int nStartPos = 0)const;
 	unsigned int Find(const EspString& lpszStr, unsigned int nStartPos = 0)const;
+	unsigned int ReverseFind(const char lpszChar, unsigned int nStartPos = 0)const
+	{
+		return EspString::ReverseFind(Buffer, lpszChar, nStartPos);
+	}
 	unsigned int ReverseFind(const char* lpszStr, unsigned int nStartPos = 0)const;
 	unsigned int ReverseFind(const EspString& lpszStr, unsigned int nStartPos = 0)const;
 	bool Compare(const char* lpszStr)const;
@@ -74,13 +88,63 @@ public:
 
 	EspString& Reverse();
 
+	void Empty()
+	{
+		if (Buffer != NULL)
+		{
+			::memset(Buffer, 0, BufSize * sizeof(char));
+			StrLen = 0;
+		}
+	}
+
 public:
-	EspString Left(unsigned int nIndex);
-	EspString Left(const EspString& lpszEndStr, unsigned int nStartPos = 0);
-	EspString Right(unsigned int nIndex);
-	EspString Right(const EspString& lpszStartStr, unsigned int nStartPos = 0);
-	EspString Middle(unsigned int nIndex, unsigned int nCount);
-	EspString Middle(const EspString& lpszStartStr, const EspString& lpszEndStr, unsigned int nStartPos = 0);
+	EspString Left(unsigned int nIndex)const;
+	EspString Left(const EspString& lpszEndStr, unsigned int nStartPos = 0)const;
+	EspString Right(unsigned int nIndex)const;
+	EspString Right(const EspString& lpszStartStr, unsigned int nStartPos = 0)const;
+	EspString Middle(unsigned int nIndex, unsigned int nCount)const;
+	EspString Middle(const EspString& lpszStartStr, const EspString& lpszEndStr, unsigned int nStartPos = 0)const;
+
+	static EspString ToString(const double Value, const unsigned int MaxLength = 10)
+	{
+		double Abs;
+		EspString Result;
+		if (Value < 0)
+			Abs = -Value;
+		else
+			Abs = Value;
+		while ((int)Abs != 0)
+		{
+			Result.Append((char)(((int)Abs % 10) + 48));
+			Abs /= 10.0;
+		}
+		if (Result.IsEmpty())
+			Result.Append('0');
+		else
+			Result.Reverse();
+		double DecValue = Value - (int)Value;
+		if (Value < 0)
+			DecValue = -DecValue;
+		else
+			DecValue = DecValue;
+		if (DecValue != 0.0)
+		{
+			Result.Append('.');
+			while (Result.GetLength() < MaxLength)
+			{
+				DecValue *= 10.0;
+				Result.Append((char)(((int)(DecValue) % 10) + 48));
+			}
+			unsigned int NonZeroPos = Result.GetLength() - 1;
+			while (Result.GetCharAt(NonZeroPos) == '0')
+				NonZeroPos--;
+			if (NonZeroPos != Result.GetLength() - 1)
+				Result.Remove(NonZeroPos + 1, Result.GetLength() - NonZeroPos - 1);
+		}
+		if (Value < 0)
+			Result.Insert(0, '-');
+		return Result;
+	}
 };
 
 unsigned int EspString::GetLength(const char* lpszStr)
@@ -88,6 +152,17 @@ unsigned int EspString::GetLength(const char* lpszStr)
 	const char* lpszInit = lpszStr;
 	while (*lpszStr++);
 	return (lpszStr - lpszInit - 1);
+}
+unsigned int EspString::Find(const char* lpszStr, const char lpszChar, unsigned int nStartPos)
+{
+	const char* lpszStrPos = lpszStr + nStartPos;
+	while (*lpszStrPos)
+	{
+		if (*lpszStrPos == lpszChar)
+			return lpszStrPos - lpszStr;
+		lpszStrPos++;
+	}
+	return -1;
 }
 unsigned int EspString::Find(const char* lpszStr, const char* lpszSub, unsigned int nStartPos)
 {
@@ -107,6 +182,18 @@ unsigned int EspString::Find(const char* lpszStr, const char* lpszSub, unsigned 
 		lpszStrPos++;
 	}
 	return -1;
+}
+unsigned int EspString::ReverseFind(const char* lpszStr, const char lpszChar, unsigned int nEndPos)
+{
+	const char* lpszStrPos = lpszStr + nEndPos;
+	const char* lpszLastPos = NULL;
+	while (*lpszStrPos)
+	{
+		if (*lpszStrPos == lpszChar)
+			lpszLastPos = lpszStrPos;
+		lpszStrPos++;
+	}
+	return lpszLastPos != NULL ? lpszLastPos - lpszStr : -1;
 }
 unsigned int EspString::ReverseFind(const char* lpszStr, const char* lpszSub, unsigned int nEndPos)
 {
@@ -639,33 +726,33 @@ EspString& EspString::Reverse()
 	return *this;
 }
 
-EspString EspString::Left(unsigned int nIndex)
+EspString EspString::Left(unsigned int nIndex)const
 {
 	EspString Result;
 	::memcpy(Result.GetBufferSetLength(nIndex, false), Buffer, nIndex * sizeof(char));
 	return Result;
 }
-EspString EspString::Left(const EspString& lpszEndStr, unsigned int nStartPos)
+EspString EspString::Left(const EspString& lpszEndStr, unsigned int nStartPos)const
 {
 	return Left(EspString::Find(Buffer, lpszEndStr, nStartPos));
 }
-EspString EspString::Right(unsigned int nIndex)
+EspString EspString::Right(unsigned int nIndex)const
 {
 	EspString Result;
 	::memcpy(Result.GetBufferSetLength(nIndex, false), Buffer + StrLen - nIndex, nIndex * sizeof(char));
 	return Result;
 }
-EspString EspString::Right(const EspString& lpszStartStr, unsigned int nStartPos)
+EspString EspString::Right(const EspString& lpszStartStr, unsigned int nStartPos)const
 {
 	return Right(StrLen - EspString::ReverseFind(Buffer, lpszStartStr, nStartPos));
 }
-EspString EspString::Middle(unsigned int nIndex, unsigned int nCount)
+EspString EspString::Middle(unsigned int nIndex, unsigned int nCount)const
 {
 	EspString Result;
 	::memcpy(Result.GetBufferSetLength(nCount, false), Buffer + nIndex, nCount * sizeof(char));
 	return Result;
 }
-EspString EspString::Middle(const EspString& lpszStartStr, const EspString& lpszEndStr, unsigned int nStartPos)
+EspString EspString::Middle(const EspString& lpszStartStr, const EspString& lpszEndStr, unsigned int nStartPos)const
 {
 	EspString Result;
 	unsigned int Pos_Left = EspString::Find(Buffer, lpszStartStr, nStartPos) + lpszStartStr.StrLen;
@@ -673,3 +760,22 @@ EspString EspString::Middle(const EspString& lpszStartStr, const EspString& lpsz
 	::memcpy(Result.GetBufferSetLength(Pos_Right, false), Buffer + Pos_Left, Pos_Right * sizeof(char));
 	return Result;
 }
+
+#ifdef __ESPARRAY__
+void EspSplitString(const EspString& lpszStr, const char lpszSymbol, EspArray<EspString>& Result, unsigned int nCount = 0)
+{
+	unsigned int nStartPos = 0;
+	unsigned int nEndPos = lpszStr.Find(lpszSymbol);
+	while (true)
+	{
+		Result.AddElement(lpszStr.Middle(nStartPos, nEndPos - nStartPos));
+		nStartPos = nEndPos + 1;
+		nEndPos = lpszStr.Find(lpszSymbol, nStartPos);
+		if (nEndPos == -1)
+		{
+			Result.AddElement(lpszStr.Middle(nStartPos, lpszStr.GetLength() - nEndPos));
+			break;
+		}
+	}
+}
+#endif

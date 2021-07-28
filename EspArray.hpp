@@ -1,5 +1,9 @@
 #pragma once
+#include<assert.h>
 #include<memory>
+#ifndef __ESPARRAY__
+#define __ESPARRAY__
+#endif
 template<class EspType>
 class EspArray
 {
@@ -212,6 +216,8 @@ public:
 	unsigned int GetCount()const { return ArraySize; }
 	unsigned int GetBufSize()const { return AllocSize; }
 	unsigned int GetExtraSize()const { return AllocSize - ArraySize; }
+	const EspType* GetBuffer()const { return ArrayData; }
+	EspType* GetBuffer() { return ArrayData; }
 	bool IsEmpty()const { return (ArraySize == 0); }
 	bool IsEmptyOrNull()const { return(ArraySize == 0 || ArrayData == NULL); }
 	bool IsFull()const { return (ArraySize == AllocSize); }
